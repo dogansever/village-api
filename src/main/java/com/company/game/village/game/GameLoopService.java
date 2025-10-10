@@ -111,7 +111,7 @@ public class GameLoopService {
                     RoomPlayer targetScry = randomTarget(rp, alivePlayers);
                     nightService.addAction(roomId, rp.getUser().getId(), targetScry.getUser().getId(), ActionType.SCRY);
                     break;
-                case DOCTOR:
+                case HUNTER:
                     RoomPlayer targetProtect = randomTarget(rp, alivePlayers);
                     nightService.addAction(roomId, rp.getUser().getId(), targetProtect.getUser().getId(), ActionType.PROTECT);
                     break;

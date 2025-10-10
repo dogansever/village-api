@@ -3,6 +3,7 @@ package com.company.game.village.room;
 import com.company.game.village.user.User;
 import com.company.game.village.user.UserService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -12,6 +13,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/rooms")
 @RequiredArgsConstructor
@@ -36,25 +38,16 @@ public class RoomController {
     @DeleteMapping("/{roomId}")
     public ResponseEntity<Void> deleteRoom(@PathVariable UUID roomId,
                                            @RequestHeader("Authorization") String authHeader) {
-        try {
-            String token = authHeader.replace("Bearer ", "");
-            User user = userService.getUserFromToken(token);
-            roomService.deleteRoom(roomId, user);
-            return ResponseEntity.noContent().build();
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(null);
-        }
+        String token = authHeader.replace("Bearer ", "");
+        User user = userService.getUserFromToken(token);
+        roomService.deleteRoom(roomId, user);
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{id}/phase")
     public ResponseEntity<Room> changePhase(@PathVariable UUID id, @RequestBody PhaseRequest request) {
-        try {
-            Room room = roomService.changePhase(id, request.getPhase());
-            return ResponseEntity.ok(room);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(null);
-        }
+        Room room = roomService.changePhase(id, request.getPhase());
+        return ResponseEntity.ok(room);
     }
 
     @PostMapping("/{id}/action")
@@ -66,12 +59,8 @@ public class RoomController {
         String token = authHeader.replace("Bearer ", "");
         String username = userService.getUserFromToken(token).getUsername();
 
-        try {
-            Room room = roomService.performAction(id, username, request);
-            return ResponseEntity.ok(room);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(null);
-        }
+        Room room = roomService.performAction(id, username, request);
+        return ResponseEntity.ok(room);
     }
 
     @GetMapping("/{id}")

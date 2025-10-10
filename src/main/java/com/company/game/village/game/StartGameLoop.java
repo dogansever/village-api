@@ -45,7 +45,7 @@ public class StartGameLoop {
         rp1.setRole(Role.VILLAGER);
         rp2.setRole(Role.VAMPIRE);
         rp3.setRole(Role.SEER);
-        rp4.setRole(Role.DOCTOR);
+        rp4.setRole(Role.HUNTER);
         rp5.setRole(Role.WITCH);
 
         roomPlayerService.update(rp1);

@@ -34,6 +34,7 @@ public class RoomPlayer {
     private User user;
 
     @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "VARCHAR(255)")
     private Role role;
 
     @ElementCollection
@@ -64,11 +65,11 @@ public class RoomPlayer {
     }
 
     public void addMessage(String s) {
-        messages.subList(0, Math.max(0, messages.size() - 1)).clear();
+        //messages.subList(0, Math.max(0, messages.size() - 1)).clear();
         messages.add(s);
     }
 
     public enum Role {
-        VILLAGER, VAMPIRE, SEER, DOCTOR, WITCH
+        VILLAGER, VAMPIRE, SEER, HUNTER, WITCH, DOCTOR
     }
 }

@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static com.company.game.village.night.NightAction.ActionType.*;
 import static com.company.game.village.room.Room.GamePhase.*;
@@ -57,7 +58,7 @@ public class RoomService {
             throw new RuntimeException("Only the creator can delete this room");
         }
 
-        if (List.of(WAITING, ENDED).contains(room.getCurrentPhase())) {
+        if (!List.of(WAITING, ENDED).contains(room.getCurrentPhase())) {
             throw new RuntimeException("You cannot delete during an active game");
         }
 
@@ -69,6 +70,15 @@ public class RoomService {
      * Yeni bir oda oluşturur ve oda sahibini odaya ekler.
      */
     public Room createRoom(String name, int maxPlayers, String joinKey, User owner) {
+        List<Room> ownerRooms = roomRepository.findByOwner(owner);
+        if (!ownerRooms.isEmpty() && !Optional.ofNullable(owner.getIsAdmin()).orElse(false)) {
+            throw new RuntimeException("You already have an active room");
+        }
+
+        if (roomRepository.findAll().size() >= 10 && !Optional.ofNullable(owner.getIsAdmin()).orElse(false)) {
+            throw new RuntimeException("Maksimum oda sayısına ulaşıldı. Lütfen daha sonra tekrar deneyin.");
+        }
+
         Room room = Room.builder()
                 .name(name)
                 .maxPlayers(maxPlayers)
@@ -113,14 +123,13 @@ public class RoomService {
             case "start-game":
                 room.setCurrentPhase(DAY);
                 room.getMessages().clear();
-                room.getMessages().add("Gündüz fazı başladı!");
                 assignRoles(room); // Burada rol atıyoruz
                 roomPlayerRepository.saveAll(room.getPlayers());
                 break;
             case "end-night":
                 room.setCurrentPhase(DAY);
-                room.getMessages().add("Gece fazı bitti. Gündüz başladı!");
                 gameEngineService.processNight(roomId);
+                room.getMessages().add("Gece bitti. Gündüz başladı!");
                 room.getPlayers().forEach(RoomPlayer::resetVote);
                 String winner = gameEngineService.checkWinner(roomId);
                 if (!winner.equals("Oyun devam ediyor")) {
@@ -130,8 +139,8 @@ public class RoomService {
                 break;
             case "end-day":
                 room.setCurrentPhase(NIGHT);
-                room.getMessages().add("Gündüz fazı bitti. Gece başladı!");
                 gameEngineService.processDay(roomId);
+                room.getMessages().add("Gündüz bitti. Gece başladı!");
                 room.getPlayers().forEach(RoomPlayer::resetVote);
                 String winner2 = gameEngineService.checkWinner(roomId);
                 if (!winner2.equals("Oyun devam ediyor")) {
@@ -154,9 +163,10 @@ public class RoomService {
 
         roles.add(SEER);
         roles.add(WITCH);
-        roles.add(DOCTOR);
+        roles.add(HUNTER);
+        roles.add(VAMPIRE);
 
-        for (int i = 0; i < (playerCount / 4); i++) {
+        for (int i = 0; i < (playerCount / 8); i++) {
             roles.add(VAMPIRE);
         }
         for (int i = roles.size(); i < playerCount; i++) {
@@ -167,9 +177,43 @@ public class RoomService {
         Collections.shuffle(players);
 
         for (int i = 0; i < playerCount; i++) {
-            players.get(i).setRole(roles.get(i));
-            players.get(i).reset();
+            RoomPlayer player = players.get(i);
+            player.setRole(roles.get(i));
+            player.reset();
         }
+
+        for (int i = 0; i < playerCount; i++) {
+            RoomPlayer player = players.get(i);
+            List<RoomPlayer> suspiciousPlayers = new ArrayList<>(players).stream()
+                    .filter(p -> p.getRole() != VAMPIRE)
+                    .filter(p -> p.getId() != player.getId())
+                    .collect(Collectors.toList());
+            Collections.shuffle(suspiciousPlayers);
+
+            RoomPlayer vampire = players.stream()
+                    .filter(p -> p.getRole() == VAMPIRE)
+                    .findFirst()
+                    .orElseThrow();
+
+            List<RoomPlayer> suspicious = new ArrayList<>(suspiciousPlayers.subList(0, 2));
+            suspicious.add(0, vampire);
+            Collections.shuffle(suspicious);
+
+            // Add message to player
+            if (player.getRole().equals(VAMPIRE)) {
+                if (players.stream().filter(p -> p.getRole().equals(VAMPIRE)).count() > 1) {
+                    String message = String.format("Oyundaki vampirler: %s. ", players.stream().filter(p -> p.getRole().equals(VAMPIRE)).map(p -> p.getUser().getUsername()).collect(Collectors.joining(", ")));
+                    player.addMessage(message);
+                }
+            } else {
+                String message = String.format("Şüpheli görünenler: %s, %s ve %s",
+                        suspicious.get(0).getUser().getUsername(),
+                        suspicious.get(1).getUser().getUsername(),
+                        suspicious.get(2).getUser().getUsername());
+                player.addMessage(message);
+            }
+        }
+
     }
 
     public Room performAction(UUID roomId, String username, ActionRequest request) {
@@ -183,11 +227,10 @@ public class RoomService {
                 .orElse(null);
 
         if (actor.getVoted()) {
-            actor.addMessage("Zaten oy kullandınız.");
+            actor.addMessage("Zaten aksiyon aldınız.");
             throw new RuntimeException("Zaten oy kullandınız");
         }
 
-        room.getMessages().add(actor.getUser().getUsername() + " birini oyladı.");
         actor.setVoted(true);
         switch (request.getAction()) {
             case "vote" -> {
@@ -197,15 +240,15 @@ public class RoomService {
             }
             case "watch" -> {
                 if (actor.isAlive() && target != null) {
-                    actor.addMessage("Köylü " + target.getUser().getUsername() + " kişisini izliyor.");
+                    actor.addMessage("Sen " + target.getUser().getUsername() + " kişisini izliyorsun.");
                     nightService.addAction(roomId, actor.getUser().getId(), target.getUser().getId(), WATCH);
                 }
             }
             case "protect" -> {
-                if (actor.getRole() == DOCTOR && target != null) {
+                if (actor.getRole() == HUNTER && target != null) {
                     target.setProtectedByVillager(true);
                     roomPlayerRepository.save(target);
-                    actor.addMessage("Doktor " + target.getUser().getUsername() + " kişisini korumaya aldı.");
+                    actor.addMessage("Avcı " + target.getUser().getUsername() + " kişisini korumaya aldın.");
                     nightService.addAction(roomId, actor.getUser().getId(), target.getUser().getId(), PROTECT);
                 }
             }
@@ -221,7 +264,7 @@ public class RoomService {
                         roomPlayerRepository.save(actor);
                         nightService.addAction(roomId, actor.getUser().getId(), target.getUser().getId(), SCRY);
                     } else {
-                        actor.addMessage("Kahinin yeteneği bitti, " + target.getUser().getUsername() + " kişisini izliyor.");
+                        actor.addMessage("Kahinlik yeteneğin bitti, " + target.getUser().getUsername() + " kişisini izliyorsun.");
                         nightService.addAction(roomId, actor.getUser().getId(), target.getUser().getId(), WATCH);
                     }
                 }
@@ -235,7 +278,7 @@ public class RoomService {
                         roomPlayerRepository.save(target);
                         nightService.addAction(roomId, actor.getUser().getId(), target.getUser().getId(), POISON);
                     } else {
-                        actor.addMessage("Cadının iksiri bitti, " + target.getUser().getUsername() + " kişisini izliyor.");
+                        actor.addMessage("Cadılık iksirin bitti, " + target.getUser().getUsername() + " kişisini izliyorsun.");
                         nightService.addAction(roomId, actor.getUser().getId(), target.getUser().getId(), WATCH);
                     }
                 }
