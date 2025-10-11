@@ -74,7 +74,7 @@ public class GameEngineService {
                     a.setResolved(true);
                 });
 
-        // 4️⃣ Doktor Protect
+        // 4️⃣ Avcı Protect
         actions.stream()
                 .filter(a -> a.getActionType() == NightAction.ActionType.PROTECT)
                 .forEach(a -> {
@@ -92,6 +92,14 @@ public class GameEngineService {
                     a.setResolved(true);
                 });
 
+        // 5️⃣ Avcı Attack
+        actions.stream()
+                .filter(a -> a.getActionType() == NightAction.ActionType.HUNT)
+                .forEach(a -> {
+                    a.getTarget().setAlive(false);
+                    room.getMessages().add(a.getTarget().getUser().getUsername() + " gece şüpheli görüldü ve avlandı.");
+                    a.setResolved(true);
+                });
         nightRepo.saveAll(actions);
     }
 

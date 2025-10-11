@@ -1,6 +1,5 @@
 package com.company.game.village.night;
 
-import com.company.game.village.day.DayVote;
 import com.company.game.village.room.Room;
 import com.company.game.village.room.RoomPlayer;
 import jakarta.persistence.*;
@@ -28,6 +27,7 @@ public class NightAction {
     private RoomPlayer actor;
 
     @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "VARCHAR(255)")
     private ActionType actionType;
 
     @ManyToOne(cascade = CascadeType.ALL)
@@ -40,7 +40,7 @@ public class NightAction {
         return this;
     }
     public enum ActionType {
-        WATCH, KILL, SCRY, PROTECT, POISON
+        WATCH, KILL, SCRY, PROTECT, POISON, HUNT
     }
 
 }

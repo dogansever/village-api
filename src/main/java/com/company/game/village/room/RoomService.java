@@ -29,21 +29,21 @@ public class RoomService {
 
     public void kickPlayer(UUID roomId, String adminUsername, String targetUsername) {
         Room room = roomRepository.findById(roomId)
-                .orElseThrow(() -> new RuntimeException("Room not found"));
+                .orElseThrow(() -> new RuntimeException("Oda bulunamadı"));
 
         if (!room.getOwner().getUsername().equals(adminUsername)) {
-            throw new RuntimeException("Only the room owner can kick players");
+            throw new RuntimeException("Sadece oda sahibi oyuncuları atabilir");
         }
 
         RoomPlayer targetPlayer = roomPlayerRepository.findByRoomIdAndUserUsername(roomId, targetUsername)
-                .orElseThrow(() -> new RuntimeException("Target player not found in room"));
+                .orElseThrow(() -> new RuntimeException("Oyuncu bulunamadı"));
 
         if (targetPlayer.getUser().getUsername().equals(adminUsername)) {
-            throw new RuntimeException("You cannot kick yourself");
+            throw new RuntimeException("Kendini atamazsın");
         }
 
         if (!List.of(WAITING, ENDED).contains(room.getCurrentPhase())) {
-            throw new RuntimeException("You cannot kick during an active game");
+            throw new RuntimeException("Oyun sırasında oyuncu atılamaz");
         }
 
         roomPlayerRepository.delete(targetPlayer);
@@ -52,14 +52,14 @@ public class RoomService {
 
     public void deleteRoom(UUID roomId, User user) {
         Room room = roomRepository.findById(roomId)
-                .orElseThrow(() -> new RuntimeException("Room not found"));
+                .orElseThrow(() -> new RuntimeException("Oda bulunamadı"));
 
         if (!Optional.ofNullable(user.getIsAdmin()).orElse(false) && !room.getOwner().getUsername().equals(user.getUsername())) {
-            throw new RuntimeException("Only the creator can delete this room");
+            throw new RuntimeException("Sadece oda sahibi veya admin odayı silebilir");
         }
 
         if (!List.of(WAITING, ENDED).contains(room.getCurrentPhase())) {
-            throw new RuntimeException("You cannot delete during an active game");
+            throw new RuntimeException("Oyun sırasında oda silinemez");
         }
 
         roomRepository.delete(room);
@@ -72,7 +72,7 @@ public class RoomService {
     public Room createRoom(String name, int maxPlayers, String joinKey, User owner) {
         List<Room> ownerRooms = roomRepository.findByOwner(owner);
         if (!ownerRooms.isEmpty() && !Optional.ofNullable(owner.getIsAdmin()).orElse(false)) {
-            throw new RuntimeException("You already have an active room");
+            throw new RuntimeException("Zaten bir odanız var. Yeni bir oda oluşturmak için mevcut odanızı silin.");
         }
 
         if (roomRepository.findAll().size() >= 10 && !Optional.ofNullable(owner.getIsAdmin()).orElse(false)) {
@@ -80,11 +80,11 @@ public class RoomService {
         }
 
         if (roomRepository.findByName(name).isPresent()) {
-            throw new RuntimeException("This room name already exists.");
+            throw new RuntimeException("Bu isimde zaten bir oda var");
         }
 
         if (maxPlayers < 5 || maxPlayers > 10) {
-            throw new RuntimeException("Max players must be between 5 and 10");
+            throw new RuntimeException("Oyuncu sayısı 5 ile 10 arasında olmalıdır");
         }
 
         Room room = Room.builder()
@@ -129,6 +129,9 @@ public class RoomService {
 
         switch (phase) {
             case "start-game":
+                if (room.getPlayers().size() < 5) {
+                    throw new RuntimeException("Oyuncu sayısı 5'ten az, oyun başlatılamaz");
+                }
                 room.setCurrentPhase(DAY);
                 room.getMessages().clear();
                 assignRoles(room); // Burada rol atıyoruz
@@ -235,7 +238,6 @@ public class RoomService {
                 .orElse(null);
 
         if (actor.getVoted()) {
-            actor.addMessage("Zaten aksiyon aldınız.");
             throw new RuntimeException("Zaten oy kullandınız");
         }
 
@@ -263,6 +265,11 @@ public class RoomService {
             case "kill" -> {
                 if (actor.getRole() == VAMPIRE && target != null) {
                     nightService.addAction(roomId, actor.getUser().getId(), target.getUser().getId(), KILL);
+                }
+            }
+            case "hunt" -> {
+                if (actor.getRole() == HUNTER && target != null) {
+                    nightService.addAction(roomId, actor.getUser().getId(), target.getUser().getId(), HUNT);
                 }
             }
             case "inspect" -> {

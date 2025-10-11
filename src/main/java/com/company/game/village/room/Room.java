@@ -1,9 +1,6 @@
 package com.company.game.village.room;
 
-import com.company.game.village.day.DayVote;
-import com.company.game.village.night.NightAction;
 import com.company.game.village.user.User;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.SQLDelete;
@@ -42,6 +39,7 @@ public class Room {
     private List<RoomPlayer> players;
 
     @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "VARCHAR(255)")
     private GamePhase currentPhase;
 
     @ElementCollection

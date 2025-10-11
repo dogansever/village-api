@@ -4,7 +4,6 @@ import com.company.game.village.user.User;
 import com.company.game.village.user.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -101,19 +100,19 @@ public class RoomController {
             @RequestHeader("Authorization") String token) {
 
         User user = userService.getUserFromToken(token);
-        if (user == null) return ResponseEntity.status(401).body("Unauthorized");
+        if (user == null)
+            throw new RuntimeException("Bilinmeyen kullanıcı");
 
         Optional<Room> roomOpt = roomService.getRoom(id);
         if (roomOpt.isEmpty()) return ResponseEntity.notFound().build();
         Room room = roomOpt.get();
 
         if (room.getJoinKey() != null && !room.getJoinKey().equals(key)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body("Geçersiz oda anahtarı");
+            throw new RuntimeException("Geçersiz oda anahtarı");
         }
 
         if (room.getPlayers().stream().noneMatch(p -> p.getUser().getUsername().equals(user.getUsername())) && !roomPlayerService.canJoin(room))
-            return ResponseEntity.badRequest().body("Room is full or started");
+            throw new RuntimeException("Oda dolu veya oyun başladı");
 
         roomPlayerService.addPlayerToRoom(room, user);
 

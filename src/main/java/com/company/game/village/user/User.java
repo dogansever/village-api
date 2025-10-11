@@ -1,5 +1,6 @@
 package com.company.game.village.user;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -19,7 +20,9 @@ public class User {
     @Column(unique = true)
     private String username;
 
+    @JsonIgnore
     private String email;
+    @JsonIgnore
     private String password;
     private String avatarUrl;
     private Boolean isAdmin;
