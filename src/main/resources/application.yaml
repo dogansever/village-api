@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: village
+  profiles:
+    active: prod  # local'de test ederken 'local' yapabilirsin
+
+server:
+  port: 8080

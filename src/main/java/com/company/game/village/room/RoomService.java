@@ -79,6 +79,14 @@ public class RoomService {
             throw new RuntimeException("Maksimum oda sayısına ulaşıldı. Lütfen daha sonra tekrar deneyin.");
         }
 
+        if (roomRepository.findByName(name).isPresent()) {
+            throw new RuntimeException("This room name already exists.");
+        }
+
+        if (maxPlayers < 5 || maxPlayers > 10) {
+            throw new RuntimeException("Max players must be between 5 and 10");
+        }
+
         Room room = Room.builder()
                 .name(name)
                 .maxPlayers(maxPlayers)
