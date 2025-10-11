@@ -63,18 +63,29 @@ public class RoomController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Room> getRoomById(@PathVariable UUID id) {
+    public ResponseEntity<Room> getRoomById(@PathVariable UUID id,
+                                            @RequestHeader("Authorization") String authHeader) {
+        String token = authHeader.replace("Bearer ", "");
+        String username = userService.getUserFromToken(token).getUsername();
         Room room = roomService.getRoom(id).orElse(null);
-        if (room != null) {
-            return ResponseEntity.ok(room);
-        } else {
-            return ResponseEntity.notFound().build();
-        }
+        room.getPlayers().forEach(rp -> {
+            if (!rp.getUser().getUsername().equals(username) && rp.isAlive()) {
+                rp.setRole(null);
+                rp.getMessages().clear();
+            }
+        });
+        return ResponseEntity.ok(room);
     }
 
     @GetMapping
-    public ResponseEntity<List<Room>> getRooms() {
+    public ResponseEntity<List<Room>> getRooms(
+            @RequestHeader("Authorization") String authHeader) {
         List<Room> rooms = roomService.getAllRooms();
+        rooms.forEach(room -> room.getPlayers()
+                .forEach(roomPlayer -> {
+                    roomPlayer.setRole(null);
+                    roomPlayer.getMessages().clear();
+                }));
         return ResponseEntity.ok(rooms);
     }
 
