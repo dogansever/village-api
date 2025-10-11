@@ -55,9 +55,9 @@ public class GameEngineService {
                             a.getActor().addMessage(a.getTarget().getUser().getUsername() + " kişisi de bir vampir.");
                         } else if (a.getTarget().getRole().equals(RoomPlayer.Role.HUNTER)) {
                             a.getActor().addMessage(a.getTarget().getUser().getUsername() + " kişisi bir avcı, baltayı taşa vurdun.");
-                            a.getTarget().addMessage(a.getActor().getUser().getUsername() + " kişisi bir vampir, sana saldırdı ancak sen kazandın.");
-                            room.getMessages().add(a.getActor().getUser().getUsername() + " gece avcıya saldırdı ancak kaybetti.");
-                            a.getTarget().setAlive(false);
+                            a.getActor().setAlive(false);
+                            a.getTarget().addMessage(a.getActor().getUser().getUsername() + " sana saldırdı ve cesurca kazandın.");
+                            room.getMessages().add("Gece avcı saldırıya uğradı ve cesurca savaştı.");
                         } else {
                             a.getTarget().setAlive(false);
                             room.getMessages().add(a.getTarget().getUser().getUsername() + " gece saldırıya uğradı.");
