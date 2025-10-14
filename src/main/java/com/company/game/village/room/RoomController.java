@@ -46,8 +46,18 @@ public class RoomController {
     }
 
     @PostMapping("/{id}/phase")
-    public ResponseEntity<Room> changePhase(@PathVariable UUID id, @RequestBody PhaseRequest request) {
+    public ResponseEntity<Room> changePhase(@PathVariable UUID id,
+                                            @RequestHeader("Authorization") String authHeader,
+                                            @RequestBody PhaseRequest request) {
+        String token = authHeader.replace("Bearer ", "");
+        String username = userService.getUserFromToken(token).getUsername();
         Room room = roomService.changePhase(id, request.getPhase());
+        room.getPlayers().forEach(rp -> {
+            if (!rp.getUser().getUsername().equals(username) && rp.isAlive() && room.getCurrentPhase() != ENDED) {
+                rp.setRole(null);
+                rp.getMessages().clear();
+            }
+        });
         return ResponseEntity.ok(room);
     }
 
@@ -61,6 +71,12 @@ public class RoomController {
         String username = userService.getUserFromToken(token).getUsername();
 
         Room room = roomService.performAction(id, username, request);
+        room.getPlayers().forEach(rp -> {
+            if (!rp.getUser().getUsername().equals(username) && rp.isAlive() && room.getCurrentPhase() != ENDED) {
+                rp.setRole(null);
+                rp.getMessages().clear();
+            }
+        });
         return ResponseEntity.ok(room);
     }
 
