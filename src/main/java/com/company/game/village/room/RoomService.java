@@ -83,8 +83,8 @@ public class RoomService {
             throw new RuntimeException("Bu isimde zaten bir oda var");
         }
 
-        if (maxPlayers < 5 || maxPlayers > 10) {
-            throw new RuntimeException("Oyuncu sayısı 5 ile 10 arasında olmalıdır");
+        if (maxPlayers < 5 || maxPlayers > 20) {
+            throw new RuntimeException("Oyuncu sayısı 5 ile 20 arasında olmalıdır");
         }
 
         Room room = Room.builder()
