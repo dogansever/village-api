@@ -7,7 +7,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 import static com.company.game.village.room.Room.GamePhase.ENDED;
 import static com.company.game.village.room.Room.GamePhase.WAITING;
@@ -29,7 +28,7 @@ public class RoomPlayerService {
                 .room(room)
                 .user(user)
                 .alive(true)
-                .role(VILLAGER) // role oyun başında dağıtılacaksa null bırak
+                .role(VILLAGER)
                 .build();
 
         return repo.save(rp);

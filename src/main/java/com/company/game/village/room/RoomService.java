@@ -134,11 +134,16 @@ public class RoomService {
                 }
                 room.setCurrentPhase(DAY);
                 room.getMessages().clear();
+                room.getMessagesOld().clear();
+                room.getPlayers().forEach(RoomPlayer::clearMessages);
                 assignRoles(room); // Burada rol atıyoruz
                 roomPlayerRepository.saveAll(room.getPlayers());
                 break;
             case "end-night":
                 room.setCurrentPhase(DAY);
+                room.setMessagesOld(room.getMessages());
+                room.setMessages(new ArrayList<>());
+                room.getPlayers().forEach(RoomPlayer::resetMessages);
                 gameEngineService.processNight(roomId);
                 room.getMessages().add("Gece bitti. Gündüz başladı!");
                 room.getPlayers().forEach(RoomPlayer::resetVote);
@@ -146,10 +151,14 @@ public class RoomService {
                 if (!winner.equals("Oyun devam ediyor")) {
                     room.getMessages().add("Oyun Sonucu: " + winner);
                     room.setCurrentPhase(ENDED);
+                    room.setWinners(winner);
                 }
                 break;
             case "end-day":
                 room.setCurrentPhase(NIGHT);
+                room.setMessagesOld(room.getMessages());
+                room.setMessages(new ArrayList<>());
+                room.getPlayers().forEach(RoomPlayer::resetMessages);
                 gameEngineService.processDay(roomId);
                 room.getMessages().add("Gündüz bitti. Gece başladı!");
                 room.getPlayers().forEach(RoomPlayer::resetVote);
@@ -157,6 +166,7 @@ public class RoomService {
                 if (!winner2.equals("Oyun devam ediyor")) {
                     room.getMessages().add("Oyun Sonucu: " + winner2);
                     room.setCurrentPhase(ENDED);
+                    room.setWinners(winner2);
                 }
                 break;
             default:
@@ -245,6 +255,7 @@ public class RoomService {
         switch (request.getAction()) {
             case "vote" -> {
                 if (actor.isAlive() && target != null) {
+                    actor.addMessage("Sen " + target.getUser().getUsername() + " kişisini suçladın.");
                     dayVoteService.vote(roomId, actor.getUser().getId(), target.getUser().getId());
                 }
             }
@@ -264,11 +275,13 @@ public class RoomService {
             }
             case "kill" -> {
                 if (actor.getRole() == VAMPIRE && target != null) {
+                    actor.addMessage(target.getUser().getUsername() + " kişisine saldırdın.");
                     nightService.addAction(roomId, actor.getUser().getId(), target.getUser().getId(), KILL);
                 }
             }
             case "hunt" -> {
                 if (actor.getRole() == HUNTER && target != null) {
+                    actor.addMessage(target.getUser().getUsername() + " kişisini avladın.");
                     nightService.addAction(roomId, actor.getUser().getId(), target.getUser().getId(), HUNT);
                 }
             }
@@ -277,6 +290,7 @@ public class RoomService {
                     if (!actor.isHasUsedSeerAction()) {
                         actor.setHasUsedSeerAction(true);
                         roomPlayerRepository.save(actor);
+                        actor.addMessage(target.getUser().getUsername() + " kişisini sorguladın.");
                         nightService.addAction(roomId, actor.getUser().getId(), target.getUser().getId(), SCRY);
                     } else {
                         actor.addMessage("Kahinlik yeteneğin bitti, " + target.getUser().getUsername() + " kişisini izliyorsun.");
@@ -289,6 +303,7 @@ public class RoomService {
                     if (!actor.isHasUsedWitchPotion()) {
                         target.setPoisonedByWitch(true);
                         actor.setHasUsedWitchPotion(true);
+                        actor.addMessage(target.getUser().getUsername() + " kişisini zehirledin.");
                         roomPlayerRepository.save(actor);
                         roomPlayerRepository.save(target);
                         nightService.addAction(roomId, actor.getUser().getId(), target.getUser().getId(), POISON);

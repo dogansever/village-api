@@ -36,6 +36,7 @@ public class Room {
     private User owner;
 
     @OneToMany(mappedBy = "room", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("id ASC")
     private List<RoomPlayer> players;
 
     @Enumerated(EnumType.STRING)
@@ -44,6 +45,9 @@ public class Room {
 
     @ElementCollection
     private List<String> messages = new ArrayList<>();
+
+    @ElementCollection
+    private List<String> messagesOld = new ArrayList<>();
 
     @Column(nullable = false, updatable = false)
     private long createdAt = System.currentTimeMillis();
@@ -58,6 +62,22 @@ public class Room {
 
     @Builder.Default
     private Boolean deleted = false;
+
+    public void setWinners(String winner2) {
+        if (winner2.equals("Vampirler kazandı")) {
+            players.stream()
+                    .filter(p -> p.getRole().equals(RoomPlayer.Role.VAMPIRE))
+                    .forEach(RoomPlayer::markWinner);
+        } else {
+            players.stream()
+                    .filter(p -> !p.getRole().equals(RoomPlayer.Role.VAMPIRE))
+                    .forEach(RoomPlayer::markWinner);
+        }
+        players.stream()
+                .map(RoomPlayer::plays)
+                .filter(p -> p.getRole().equals(RoomPlayer.Role.VAMPIRE))
+                .forEach(RoomPlayer::markEvil);
+    }
 
     public enum GamePhase {
         WAITING,

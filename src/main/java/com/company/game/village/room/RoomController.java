@@ -12,6 +12,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+import static com.company.game.village.room.Room.GamePhase.ENDED;
+
 @Slf4j
 @RestController
 @RequestMapping("/api/rooms")
@@ -69,7 +71,7 @@ public class RoomController {
         String username = userService.getUserFromToken(token).getUsername();
         Room room = roomService.getRoom(id).orElse(null);
         room.getPlayers().forEach(rp -> {
-            if (!rp.getUser().getUsername().equals(username) && rp.isAlive()) {
+            if (!rp.getUser().getUsername().equals(username) && rp.isAlive() && room.getCurrentPhase() != ENDED) {
                 rp.setRole(null);
                 rp.getMessages().clear();
             }

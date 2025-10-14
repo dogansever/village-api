@@ -2,6 +2,7 @@ package com.company.game.village.room;
 
 import com.company.game.village.user.User;
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -12,6 +13,7 @@ import org.hibernate.annotations.Where;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Builder
@@ -39,6 +41,8 @@ public class RoomPlayer {
 
     @ElementCollection
     private List<String> messages = new ArrayList<>();
+    @ElementCollection
+    private List<String> messagesOld = new ArrayList<>();
 
     private boolean alive = true;
     private Boolean voted = false;
@@ -69,7 +73,45 @@ public class RoomPlayer {
         messages.add(s);
     }
 
+    public void resetMessages() {
+        setMessagesOld(getMessages());
+        setMessages(new ArrayList<>());
+    }
+
+    public void markWinner() {
+        user.wins();
+    }
+
+    public void markEvil() {
+        user.evils();
+    }
+
+    public void clearMessages() {
+        setMessagesOld(new ArrayList<>());
+        setMessages(new ArrayList<>());
+    }
+
+    public RoomPlayer plays() {
+        user.plays();
+        return this;
+    }
+
     public enum Role {
         VILLAGER, VAMPIRE, SEER, HUNTER, WITCH, DOCTOR
+    }
+
+    @JsonProperty("wins")
+    public int getWins() {
+        return user != null ? Optional.ofNullable(user.getWins()).orElse(0) : 0;
+    }
+
+    @JsonProperty("evils")
+    public int getEvils() {
+        return user != null ? Optional.ofNullable(user.getEvils()).orElse(0) : 0;
+    }
+
+    @JsonProperty("plays")
+    public int getPlays() {
+        return user != null ? Optional.ofNullable(user.getPlays()).orElse(0) : 0;
     }
 }

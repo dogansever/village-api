@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.Optional;
 import java.util.UUID;
 
 @Entity(name = "users")
@@ -26,4 +27,19 @@ public class User {
     private String password;
     private String avatarUrl;
     private Boolean isAdmin;
+    private Integer wins;
+    private Integer evils;
+    private Integer plays;
+
+    public void wins() {
+        wins = Optional.ofNullable(wins).orElse(0) + 1;
+    }
+
+    public void evils() {
+        evils = Optional.ofNullable(evils).orElse(0) + 1;
+    }
+
+    public void plays() {
+        plays = Optional.ofNullable(plays).orElse(0) + 1;
+    }
 }
