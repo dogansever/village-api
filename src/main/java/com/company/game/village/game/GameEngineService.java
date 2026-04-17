@@ -41,7 +41,7 @@ public class GameEngineService {
         List<NightAction> watcher = actions.stream()
                 .filter(a -> a.getActionType() == NightAction.ActionType.WATCH)
                 .peek(a -> {
-                    room.getMessages().add(a.getTarget().getUser().getUsername() + " tüm gece şüphe ile izlendi.");
+                   // room.getMessages().add(a.getTarget().getUser().getUsername() + " tüm gece şüphe ile izlendi.");
                     a.setResolved(true);
                 })
                 .toList();
@@ -97,7 +97,7 @@ public class GameEngineService {
                 .filter(a -> a.getActionType() == NightAction.ActionType.HUNT)
                 .forEach(a -> {
                     a.getTarget().setAlive(false);
-                    room.getMessages().add(a.getTarget().getUser().getUsername() + " gece şüpheli görüldü ve avlandı.");
+                    room.getMessages().add(a.getTarget().getUser().getUsername() + " gece şüpheli görüldü ve avcı tarafından avlandı.");
                     a.setResolved(true);
                 });
         nightRepo.saveAll(actions);

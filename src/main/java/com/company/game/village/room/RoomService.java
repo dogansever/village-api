@@ -42,9 +42,9 @@ public class RoomService {
             throw new RuntimeException("Kendini atamazsın");
         }
 
-        if (!List.of(WAITING, ENDED).contains(room.getCurrentPhase())) {
-            throw new RuntimeException("Oyun sırasında oyuncu atılamaz");
-        }
+        //if (!List.of(WAITING, ENDED).contains(room.getCurrentPhase())) {
+            //throw new RuntimeException("Oyun sırasında oyuncu atılamaz");
+        //}
 
         roomPlayerRepository.delete(targetPlayer);
     }
@@ -58,9 +58,9 @@ public class RoomService {
             throw new RuntimeException("Sadece oda sahibi veya admin odayı silebilir");
         }
 
-        if (!List.of(WAITING, ENDED).contains(room.getCurrentPhase())) {
-            throw new RuntimeException("Oyun sırasında oda silinemez");
-        }
+        //if (!List.of(WAITING, ENDED).contains(room.getCurrentPhase())) {
+          //  throw new RuntimeException("Oyun sırasında oda silinemez");
+        //}
 
         roomRepository.delete(room);
     }
@@ -128,6 +128,9 @@ public class RoomService {
         );
 
         switch (phase) {
+            case "end-game":
+                room.setCurrentPhase(ENDED);
+                break;
             case "start-game":
                 if (room.getPlayers().size() < 5) {
                     throw new RuntimeException("Oyuncu sayısı 5'ten az, oyun başlatılamaz");
@@ -216,20 +219,19 @@ public class RoomService {
                     .findFirst()
                     .orElseThrow();
 
-            List<RoomPlayer> suspicious = new ArrayList<>(suspiciousPlayers.subList(0, 2));
+            List<RoomPlayer> suspicious = new ArrayList<>(suspiciousPlayers.subList(0, 3));
             suspicious.add(0, vampire);
             Collections.shuffle(suspicious);
 
             // Add message to player
             if (player.getRole().equals(VAMPIRE)) {
                 if (players.stream().filter(p -> p.getRole().equals(VAMPIRE)).count() > 1) {
-                    String message = String.format("Oyundaki vampirler: %s. ", players.stream().filter(p -> p.getRole().equals(VAMPIRE)).map(p -> p.getUser().getUsername()).collect(Collectors.joining(", ")));
+                    String message = String.format("Köydeki vampirler: %s.", players.stream().filter(p -> p.getRole().equals(VAMPIRE)).map(p -> p.getUser().getUsername()).collect(Collectors.joining(", ")));
                     player.addMessage(message);
                 }
             } else {
-                String message = String.format("Şüpheli görünenler: %s, %s ve %s",
+                String message = String.format("Gece fısıltıyla konuştuklarını farkettin: %s ve %s.",
                         suspicious.get(0).getUser().getUsername(),
-                        suspicious.get(1).getUser().getUsername(),
                         suspicious.get(2).getUser().getUsername());
                 player.addMessage(message);
             }
