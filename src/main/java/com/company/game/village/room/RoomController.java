@@ -7,6 +7,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -50,7 +52,9 @@ public class RoomController {
                                             @RequestHeader("Authorization") String authHeader,
                                             @RequestBody PhaseRequest request) {
         String token = authHeader.replace("Bearer ", "");
-        String username = userService.getUserFromToken(token).getUsername();
+        User user = userService.getUserFromToken(token);
+        if (user == null) return ResponseEntity.status(401).build();
+        String username = user.getUsername();
         Room room = roomService.changePhase(id, request.getPhase());
         room.getPlayers().forEach(rp -> {
             if (!rp.getUser().getUsername().equals(username) && rp.isAlive() && room.getCurrentPhase() != ENDED) {
@@ -68,7 +72,9 @@ public class RoomController {
             @RequestHeader("Authorization") String authHeader) {
 
         String token = authHeader.replace("Bearer ", "");
-        String username = userService.getUserFromToken(token).getUsername();
+        User user = userService.getUserFromToken(token);
+        if (user == null) return ResponseEntity.status(401).build();
+        String username = user.getUsername();
 
         Room room = roomService.performAction(id, username, request);
         room.getPlayers().forEach(rp -> {
@@ -84,14 +90,52 @@ public class RoomController {
     public ResponseEntity<Room> getRoomById(@PathVariable UUID id,
                                             @RequestHeader("Authorization") String authHeader) {
         String token = authHeader.replace("Bearer ", "");
-        String username = userService.getUserFromToken(token).getUsername();
-        Room room = roomService.getRoom(id).orElse(null);
-        room.getPlayers().forEach(rp -> {
-            if (!rp.getUser().getUsername().equals(username) && rp.isAlive() && room.getCurrentPhase() != ENDED) {
-                rp.setRole(null);
-                rp.getMessages().clear();
+        User user = userService.getUserFromToken(token);
+        if (user == null) return ResponseEntity.status(401).build();
+        String username = user.getUsername();
+        Optional<Room> roomOpt = roomService.getRoom(id);
+        if (roomOpt.isEmpty()) return ResponseEntity.notFound().build();
+        Room room = roomOpt.get();
+
+        // Ensure the current player's RoomPlayer is the first element in the players list
+        if (room.getPlayers() != null) {
+            // Build ordered list: current player (if found) -> alive others -> dead others
+            List<RoomPlayer> original = new ArrayList<>(room.getPlayers());
+            RoomPlayer currentRp = null;
+            List<RoomPlayer> alive = new ArrayList<>();
+            List<RoomPlayer> dead = new ArrayList<>();
+
+            for (RoomPlayer rp : original) {
+                if (rp == null || rp.getUser() == null) continue;
+                if (username.equals(rp.getUser().getUsername())) {
+                    currentRp = rp;
+                } else if (rp.isAlive()) {
+                    alive.add(rp);
+                } else {
+                    dead.add(rp);
+                }
             }
-        });
+
+            // Sort alive players alphabetically by username (case-insensitive)
+            alive.sort(Comparator.comparing(rp -> rp.getUser().getUsername(), String.CASE_INSENSITIVE_ORDER));
+
+            List<RoomPlayer> ordered = new ArrayList<>();
+            if (currentRp != null) ordered.add(currentRp);
+            ordered.addAll(alive);
+            ordered.addAll(dead);
+
+            // Set ordered list on the room for response (do not persist)
+            room.setPlayers(ordered);
+
+            // Apply existing masking logic to the ordered list
+            ordered.forEach(rp -> {
+                if (!rp.getUser().getUsername().equals(username) && rp.isAlive() && room.getCurrentPhase() != ENDED) {
+                    rp.setRole(null);
+                    rp.getMessages().clear();
+                }
+            });
+        }
+
         return ResponseEntity.ok(room);
     }
 
@@ -153,4 +197,3 @@ public class RoomController {
         return ResponseEntity.ok(roomService.getPlayers(roomId));
     }
 }
-
