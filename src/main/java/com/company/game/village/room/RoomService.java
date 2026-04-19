@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static com.company.game.village.night.NightAction.ActionType.*;
 import static com.company.game.village.room.Room.GamePhase.*;
@@ -230,13 +231,36 @@ public class RoomService {
                     player.addMessage(message);
                 }
             } else {
-                String message = String.format("Gece fısıltıyla konuştuklarını farkettin: %s ve %s.",
-                        suspicious.get(0).getUser().getUsername(),
-                        suspicious.get(2).getUser().getUsername());
+                // Replaced simple fixed message with richer, randomized templates
+                String message = generateWhisperMessage(player, suspicious);
                 player.addMessage(message);
             }
         }
 
+    }
+
+    // Generate a richer, slightly randomized Turkish whisper message for non-vampire players
+    private String generateWhisperMessage(RoomPlayer player, List<RoomPlayer> suspects) {
+        // use player to avoid unused parameter warning and to personalize fallback message
+        String you = player != null && player.getUser() != null ? player.getUser().getUsername() : "sensin";
+
+        if (suspects == null || suspects.size() < 2) {
+            return String.format("Gece fısıltılarında %s'in kulağına birkaç isim takıldı; aklında soru işaretleri belirdi.", you);
+        }
+
+        String a = suspects.get(0).getUser().getUsername();
+        String b = suspects.get(2).getUser().getUsername();
+
+        String[] templates = new String[]{
+                "Gece fısıltılarında %s ve %s adları sıkça geçiyordu; kulağına bir sır düştü.",
+                "Karanlıkta %s ile %s'in konuştuğunu duydun; ses tonları tedirgin ediciydi.",
+                "Uzakta, %s ve %s arasında geçen konuşma seni endişelendirdi; bir şeyler saklıyor gibiydiler.",
+                "%s ve %s isimlerini fısıltı halinde duydun; davranışları şüphe uyandırdı.",
+                "Gecenin sessizliğinde %s ile %s konuşurken yakalandılar; içgüdün hemen harekete geçti."
+        };
+
+        int idx = ThreadLocalRandom.current().nextInt(templates.length);
+        return String.format(templates[idx], a, b);
     }
 
     public Room performAction(UUID roomId, String username, ActionRequest request) {
