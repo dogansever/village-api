@@ -226,10 +226,9 @@ public class RoomService {
 
             // Add message to player
             if (player.getRole().equals(VAMPIRE)) {
-                if (players.stream().filter(p -> p.getRole().equals(VAMPIRE)).count() > 1) {
-                    String message = String.format("Köydeki vampirler: %s.", players.stream().filter(p -> p.getRole().equals(VAMPIRE)).map(p -> p.getUser().getUsername()).collect(Collectors.joining(", ")));
-                    player.addMessage(message);
-                }
+                // Generate richer vampire-specific message (handles lone vampir and multiple vampires)
+                String message = generateVampireMessage(player, players);
+                player.addMessage(message);
             } else {
                 // Replaced simple fixed message with richer, randomized templates
                 String message = generateWhisperMessage(player, suspicious);
@@ -239,28 +238,130 @@ public class RoomService {
 
     }
 
-    // Generate a richer, slightly randomized Turkish whisper message for non-vampire players
+    // Generate a richer, role-aware and slightly randomized Turkish whisper message for players
     private String generateWhisperMessage(RoomPlayer player, List<RoomPlayer> suspects) {
-        // use player to avoid unused parameter warning and to personalize fallback message
+        // personalize
         String you = player != null && player.getUser() != null ? player.getUser().getUsername() : "sensin";
+        Role role = player != null ? player.getRole() : null;
 
-        if (suspects == null || suspects.size() < 2) {
+        int s = suspects == null ? 0 : suspects.size();
+        String a = s > 0 ? suspects.get(0).getUser().getUsername() : "birileri";
+        String b = s > 1 ? suspects.get(1 % s).getUser().getUsername() : a;
+        String c = s > 2 ? suspects.get(2 % s).getUser().getUsername() : a;
+
+        // If we have no suspects, return a personalized fallback to avoid unused-variable warnings
+        if (s == 0) {
             return String.format("Gece fısıltılarında %s'in kulağına birkaç isim takıldı; aklında soru işaretleri belirdi.", you);
         }
 
-        String a = suspects.get(0).getUser().getUsername();
-        String b = suspects.get(2).getUser().getUsername();
-
-        String[] templates = new String[]{
+        List<String> villagerTemplates = Arrays.asList(
                 "Gece fısıltılarında %s ve %s adları sıkça geçiyordu; kulağına bir sır düştü.",
                 "Karanlıkta %s ile %s'in konuştuğunu duydun; ses tonları tedirgin ediciydi.",
                 "Uzakta, %s ve %s arasında geçen konuşma seni endişelendirdi; bir şeyler saklıyor gibiydiler.",
                 "%s ve %s isimlerini fısıltı halinde duydun; davranışları şüphe uyandırdı.",
-                "Gecenin sessizliğinde %s ile %s konuşurken yakalandılar; içgüdün hemen harekete geçti."
-        };
+                "Gecenin sessizliğinde %s ile %s konuşurken yakalandılar; içgüdün hemen harekete geçti.",
+                "Bir köşede %s, diğer köşede %s konuşuyordu; aralarında bir bağ var gibi hissettin.",
+                "Fısıltıda geçen isimler: %s, %s ve daha fazlası; kulakların buna kilitlendi.",
+                "Gizli bir anlaşma mı var diye düşündün; %s ve %s gözlerinin önüne geldi."
+        );
 
-        int idx = ThreadLocalRandom.current().nextInt(templates.length);
-        return String.format(templates[idx], a, b);
+        List<String> seerTemplates = Arrays.asList(
+                "Rüyan gibi bir vizyon gördün: %s rolüyle ilgili ipuçları ve %s adı belirdi.",
+                "Gecenin içinde bir görüntü: %s ve %s birbirine bakıyordu; sezgilerin uyanıyor.",
+                "Sinematik bir sahne gibiydi; %s bir köşede dururken %s hareket ediyordu; bunu unutmayacaksın."
+        );
+
+        List<String> hunterTemplates = Arrays.asList(
+                "İçgüdülerinin köşesinde %s ve %s kaldı; avcı dikkatini onlara çevirdi.",
+                "%s'in hareketleri seni rahatsız etti; %s'e gözlerin takıldı.",
+                "Bir iz takip ettin; sonuçta %s ve %s konuşurken bulundun."
+        );
+
+        List<String> witchTemplates = Arrays.asList(
+                "Fısıltıda tuhaf bir iksirden söz ediliyordu; %s ile %s arasında bir sır vardı.",
+                "Gecenin kokusu garipti; %s isimleri geçiyor, %s'in elinde bir şey vardı gibi hissettin.",
+                "%s ve %s'in konuşması sihirli bir uyarı gibi yankılandı; dikkatli ol."
+        );
+
+        List<String> chosenList;
+        if (role == SEER) chosenList = seerTemplates;
+        else if (role == HUNTER) chosenList = hunterTemplates;
+        else if (role == WITCH) chosenList = witchTemplates;
+        else chosenList = villagerTemplates;
+
+        // Add some generic suspicious templates into villagerTemplates if chosenList is villagerTemplates
+        if (chosenList == villagerTemplates) {
+            chosenList = new ArrayList<>(villagerTemplates);
+            chosenList.add("%s, %s'i görünce yüz ifadesi değişti; bu dikkat çekiciydi.");
+            chosenList.add("Birinin sakladığı bir şey var gibi: %s ve %s biraz fazlaca temkinliydi.");
+            chosenList.add("Gece boyunca %s, %s ve %s isimleri kulağına çalındı; bir bağlantı olmalı.");
+        }
+
+        int idx = ThreadLocalRandom.current().nextInt(chosenList.size());
+        String template = chosenList.get(idx);
+
+        // If template expects 3 placeholders but we only have 2 distinct suspects, use c as fallback
+        if (template.contains("%s, %s ve %s")) {
+            return String.format(template, a, b, c);
+        }
+
+        // Some templates use two placeholders
+        if (template.chars().filter(ch -> ch == '%').count() >= 4) {
+            return String.format(template, a, b, c);
+        }
+
+        return String.format(template, a, b);
+    }
+
+    // Generate messages specifically for vampires. If multiple vampires exist, show teammate names and a flavor line.
+    private String generateVampireMessage(RoomPlayer player, List<RoomPlayer> allPlayers) {
+        String you = player != null && player.getUser() != null ? player.getUser().getUsername() : "sensin";
+        List<String> teammates = allPlayers.stream()
+                .filter(p -> p.getRole() == VAMPIRE)
+                .filter(p -> !Objects.equals(p.getId(), player != null ? player.getId() : null))
+                .map(p -> p.getUser().getUsername())
+                .collect(Collectors.toList());
+
+        // Templates for multiple vampires (coordinated messages)
+        List<String> multiple = Arrays.asList(
+                "Kardeş vampirler: %s. Geceyi birlikte planlayın.",
+                "Ortaklarınız: %s. Birlikte hareket etmek için fısıldadınız.",
+                "%s isimleriyle aynı gölgede dolaşıyorsunuz; birlikte daha güçlüsünüz."
+        );
+
+        // Templates for lone vampire (atmospheric + hint)
+        List<String> lone = Arrays.asList(
+                "Yalnız bir gölgesin, %s; gece senin oyunun. Dikkatli ve kurnaz ol.",
+                "%s, etraf sessizleşti; tek başına hareket etmenin zamanı olabilir.",
+                "Karanlıkta sadece sen varsın, %s; gizlen ve fırsatı bekle."
+        );
+
+        if (!teammates.isEmpty()) {
+            String list = String.join(", ", teammates);
+            int idx = ThreadLocalRandom.current().nextInt(multiple.size());
+            String base = String.format(multiple.get(idx), list);
+
+            // tactical hints for multiple vampires
+            List<String> tactics = Arrays.asList(
+                    "Koordine saldırı planlayın.",
+                    "Bu gece sessiz kalıp hedefleri gözlemleyin.",
+                    "Bir hedef seçin ve hızlı hareket edin."
+            );
+            String tactic = tactics.get(ThreadLocalRandom.current().nextInt(tactics.size()));
+            return base + " " + tactic;
+        } else {
+            int idx = ThreadLocalRandom.current().nextInt(lone.size());
+            String base = String.format(lone.get(idx), you);
+
+            // tactical hints for lone vampire
+            List<String> loneTactics = Arrays.asList(
+                    "Tek başınasın; dikkatli ve gizli ol.",
+                    "Fırsat kollayın; yalnız hareket etmenin avantajını kullanın.",
+                    "Gözlerden uzak dur ve doğru anı bekle."
+            );
+            String tactic = loneTactics.get(ThreadLocalRandom.current().nextInt(loneTactics.size()));
+            return base + " " + tactic;
+        }
     }
 
     public Room performAction(UUID roomId, String username, ActionRequest request) {
